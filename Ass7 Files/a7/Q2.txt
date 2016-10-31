@@ -1,0 +1,12 @@
+aRead 10: .013 seconds
+
+aRead 100: .013 seconds
+
+aRead 1000: .013 seconds
+
+aRead 1000000 : .646 seconds
+
+Explanation: Because we implemented asynchronous reads we no longer need to
+wait for the processor to finish the read before scheduling the next one, and 
+thus we schedule all of the reads, and read all of the scheduled as they are 
+scheduled, which vastly cuts down the time it takes to finish all of the reads.  

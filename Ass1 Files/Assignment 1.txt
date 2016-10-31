@@ -1,0 +1,12 @@
+-- PART 1 --
+
+1. 0x9E450D6D
+
+2. 0x5D29FE43A7B42606
+
+3. Examples: 0xAAAAAA or 0xA18B23238BA1 or A1.
+In general any repersentation of bits that is the same forward and backwards 
+is the same whether stored as little endian or big endian. Also any single bit has the 
+same repersentation as well, whether big or little endian.
+
+4.

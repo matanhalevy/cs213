@@ -1,0 +1,38 @@
+question 1:
+(a) The difference between the two approaches in the s7-static-call, for the the stack 
+	has foo setting up the stack pointer to point at 0x1028. Both versions set
+	the return address to pc + 6. However in the ping function for the stack version, decreases the pointer by 4 (1 byte) allocating space in the stack, so the return address is  set as whatever the pointer is pointing too. Then we load the return address to r6, and deallocates the space and then jumps the return address. In comparison the register version sets up the return address as the same (pc + 6), but when ping is called, the ping function immediately jumps back to return the return address.
+
+(b) Using the stack method you're able to save the return address, for example if you were to call another function, the return address would not be overwritten in the stack and you would be able to reuse it.
+
+(c) One benefit of the register would be that it is a lot simpler and runs a more quickly due to this (in regards to this specific implementation).
+
+question 2:
+(a) when foo allocates b's stack frame:
+add  r0, r5              # [08] allocate caller part of b's frame
+
+when b allocates b's stack frame:
+add  r0, r5              # [21] allocate callee part of b's frame
+
+(b) when foo de-allocate's b's stack frame:
+inca r5                  # [18] deallocate callee part of foo's frame
+
+when b de-allocates b's stack frame:
+add  r0, r5              # [31] deallocate callee parts of b's frame
+
+(c) Replace 20 with:     ld $ffffffec, r0       # r0 = -20     changing the allocation space from 12 to 20 
+    Replace 22 with:     st r6, 0x10(r5)        # changing the return address to be lower 
+    
+    Insert after 26:     ld 0x14(r5), r0     #  r0 = a2
+						 st r0, 0x8(r5)     
+                         ld 0x18(r5), r0     #  r0 = a3  (these might not mater since we do not need to use it ) 
+                         st r0, 0xc(r5) 
+                            
+    Replace 29 with :    ld 0x10(r5), r6     # loading the jump value 
+    Replace 30 with :    ld $14, r0          # r0 = 20     
+                         
+(d) Replace 7 with  :    ld $0xfffffff4, r0   # r0 = -12
+    Insert after 12 :    ld   $0x2, r0        # r0 = 2 = value of a2
+                         st   r0, 0x8(r5)     # store value of a2 to stack 
+    Replace 15 with :    ld   $12 , r0
+

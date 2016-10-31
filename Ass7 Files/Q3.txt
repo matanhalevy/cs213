@@ -1,0 +1,15 @@
+tRead 10 real: .019 seconds sys:.016 seconds
+
+aRead 10 real: .015 seconds sys: .000 seconds
+
+tRead 100 real: .067 seconds sys: .06 seconds
+
+aRead 100 real: .013 seconds sys: .000 seconds
+
+tRead 1000 real: .561 seconds sys: .548 seconds
+
+aRead 1000 real: .015 seconds sys: .000 seconds
+
+explanation: tRead is much faster than sRead because it uses multiple threads for each individual read, making the reads
+appear synchronous. However, because tRead needs to create the threads, it takes far more system time or overhead,
+than aRead, and thus ends up taking longer than aRead, by a slight margin. 

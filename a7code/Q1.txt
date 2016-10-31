@@ -1,0 +1,8 @@
+question 1:
+(a) The difference between the two approaches in the s7-static-call, for the the stack 
+	has foo setting up the stack pointer to point at 0x1028. Both versions set
+	the return address to pc + 6. However in the ping function for the stack version, decreases the pointer by 4 (1 byte) allocating space in the stack, so the return address is  set as whatever the pointer is pointing too. Then we load the return address to r6, and deallocates the space and then jumps the return address. In comparison the register version sets up the return address as the same (pc + 6), but when ping is called, the ping function immediately jumps back to return the return address.
+
+(b) Using the stack method you're able to save the return address, for example if you were to call another function, the return address would not be overwritten in the stack and you would be able to reuse it.
+
+(c) One benefit of the register would be that it is a lot simpler and runs a more quickly due to this (in regards to this specific implementation).

@@ -1,0 +1,192 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <assert.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include "uthread.h"
+#include "uthread_mutex_cond.h"
+
+#ifdef VERBOSE
+#define VERBOSE_PRINT(S, ...) printf (S, ##__VA_ARGS__);
+#else
+#define VERBOSE_PRINT(S, ...) ;
+#endif
+
+#define MAX_OCCUPANCY      3
+#define NUM_ITERATIONS     100
+#define NUM_PEOPLE         20  //ALSDKFJLASDJFKAJDKFJALSDF CHANGE LATER
+#define FAIR_WAITING_COUNT 4
+
+/**
+ * You might find these declarations useful.
+ */
+enum Sex { MALE = 0, FEMALE = 1 };
+const static enum Sex otherSex[] = { FEMALE, MALE };
+
+struct Washroom {
+	uthread_mutex_t mutex;
+	uthread_cond_t  enterF;
+	uthread_cond_t  enterM;
+	uthread_cond_t  fairnessInvoked;
+	int numPeople;
+	int nm;
+	int nw;
+	int sex;
+};
+
+struct Washroom* createWashroom() {
+	struct Washroom* w = malloc(sizeof(struct Washroom));
+	w->mutex = uthread_mutex_create();
+	w->enterF = uthread_cond_create(w->mutex);
+	w->enterM = uthread_cond_create(w->mutex);
+	w->numPeople = 0;
+	w->nm = 0;
+	w->nw = 0;
+	w->sex = rand() % 2; //1 = female, 0 = male
+	return w;
+}
+
+#define WAITING_HISTOGRAM_SIZE (NUM_ITERATIONS * NUM_PEOPLE)
+int             entryTicker;  // incremented with each entry
+int             waitingHistogram[WAITING_HISTOGRAM_SIZE];
+int             waitingHistogramOverflow;
+uthread_mutex_t waitingHistogrammutex;
+int             occupancyHistogram[2][MAX_OCCUPANCY + 1];
+
+void enterWashroom(struct Washroom* w, enum Sex sex) {
+	uthread_mutex_lock(w->mutex);
+	if (sex == 0){
+		while ((w->sex == 1) || ((w->numPeople + 1) > 3 )|| (w->nm >= FAIR_WAITING_COUNT)){
+			VERBOSE_PRINT("male tries to enter\n");
+			uthread_cond_wait(w->enterM);
+		}
+
+		VERBOSE_PRINT("exit male wait \n");
+		if ((w->sex == 0) && ((w->numPeople + 1) <= 3)){
+			w->nm++;
+			entryTicker++;
+			VERBOSE_PRINT("male successful enter\n");
+			w->numPeople++;
+			occupancyHistogram[MALE][w->numPeople]++;
+		}
+	}
+
+	else {
+		while ((w->sex == 0) || ((w->numPeople + 1) > 3 || (w->nw >= FAIR_WAITING_COUNT))){
+			VERBOSE_PRINT("female tries to enter\n");
+			uthread_cond_wait(w->enterF);
+		}
+		if (w->sex == 1 && (w->numPeople + 1) <= 3){
+			w->nw++;
+			w->numPeople++;
+			entryTicker++;
+			VERBOSE_PRINT("female successful enter\n");
+			printf("numWomen so far: %d\n", w->nw);
+			occupancyHistogram[FEMALE][w->numPeople]++;
+		}
+	}
+	uthread_mutex_unlock(w->mutex);
+}
+
+
+void leaveWashroom(struct Washroom* w) {
+	uthread_mutex_lock(w->mutex);
+	if (w->numPeople > 0)
+		w->numPeople--;
+	VERBOSE_PRINT("one person left\n");
+	occupancyHistogram[w->sex][w->numPeople]++;
+	if (w->nm >= FAIR_WAITING_COUNT){
+		w->nm = 0;
+		w->sex = 1;
+
+		if (w->numPeople == 0){
+			occupancyHistogram[FEMALE][w->numPeople]++;
+			occupancyHistogram[MALE][w->numPeople]++;
+			uthread_cond_signal(w->enterF);
+		}
+	}
+	else if (w->nw >= FAIR_WAITING_COUNT){
+			w->nw = 0;
+			w->sex = 0;
+			VERBOSE_PRINT("switch to male\n");
+		if (w->numPeople == 0){
+			printf("numPeople: %d\n", w->numPeople);
+			occupancyHistogram[FEMALE][w->numPeople]++;
+			occupancyHistogram[MALE][w->numPeople]++;
+			uthread_cond_signal(w->enterM);
+		}
+	}
+
+	else if (w->sex == 1) {
+		uthread_cond_signal(w->enterF);
+	}
+
+	else if (w->sex == 0) {
+		uthread_cond_signal(w->enterM);
+	}
+	uthread_mutex_unlock(w->mutex);
+}
+
+void* person(void* washroom){
+	struct Washroom* w = washroom;
+	int r = random() % 2;
+	for (int i = 0; i < NUM_ITERATIONS; i++) {
+		//VERBOSE_PRINT("trying to enter\n");
+		//printf("gender: %d\n", r);
+		enterWashroom(w, r);
+		for (int i = 0; i < NUM_PEOPLE; i++){
+			uthread_yield();
+		}
+		leaveWashroom(w);
+		for (int i = 0; i < NUM_PEOPLE; i++){
+			uthread_yield();
+		}
+	}
+	return NULL;
+}
+
+
+void recordWaitingTime(int waitingTime) {
+	uthread_mutex_lock(waitingHistogrammutex);
+	if (waitingTime < WAITING_HISTOGRAM_SIZE)
+		waitingHistogram[waitingTime] ++;
+	else
+		waitingHistogramOverflow++;
+	uthread_mutex_unlock(waitingHistogrammutex);
+}
+
+//
+// TODO
+// You will probably need to create some additional produres etc.
+//
+
+int main(int argc, char** argv) {
+	uthread_init(1);
+	struct Washroom* w = createWashroom();
+	uthread_t        pt[NUM_PEOPLE];
+	waitingHistogrammutex = uthread_mutex_create();
+
+	// TODO
+	for (int i = 0; i < NUM_PEOPLE; i++){
+		pt[i] = uthread_create(person, w);
+	}
+
+	for (int i = 0; i < NUM_PEOPLE; i++){
+		uthread_join(pt[i], 0);
+	}
+
+	printf("Times with 0 male    %d\n", occupancyHistogram[MALE][0]);
+	printf("Times with 1 male    %d\n", occupancyHistogram[MALE][1]);
+	printf("Times with 2 males   %d\n", occupancyHistogram[MALE][2]);
+	printf("Times with 3 males   %d\n", occupancyHistogram[MALE][3]);
+	printf("Times with 0 female  %d\n", occupancyHistogram[FEMALE][0]);
+	printf("Times with 1 female  %d\n", occupancyHistogram[FEMALE][1]);
+	printf("Times with 2 females %d\n", occupancyHistogram[FEMALE][2]);
+	printf("Times with 3 females %d\n", occupancyHistogram[FEMALE][3]);
+	printf("Waiting Histogram\n");
+	for (int i = 0; i < WAITING_HISTOGRAM_SIZE; i++)
+		if (waitingHistogram[i])
+			printf("  Number of times people waited for %d %s to enter: %d\n", i, i == 1 ? "person" : "people", waitingHistogram[i]);
+	if (waitingHistogramOverflow)
+		printf("  Number of times people waited more than %d entries: %d\n", WAITING_HISTOGRAM_SIZE, waitingHistogramOverflow);
+}

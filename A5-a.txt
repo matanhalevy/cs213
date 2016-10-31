@@ -1,0 +1,22 @@
+#include <stdlib.h>
+#include <stdio.h>
+
+int array[10];
+
+void foo(int a, int b) {
+	array[b] = a + array[b];
+}
+
+void main() {
+	int i1 = 1;
+	int i2 = 2;
+	int i3 = 3;
+	int i4 = 4;
+
+	foo(i3,i4);
+	foo(i1,i2);
+
+	for (int i=0; i<10; i++) {
+		printf("%d\n", array[i]);
+	}
+}

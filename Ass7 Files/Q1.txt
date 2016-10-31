@@ -1,0 +1,9 @@
+sRead 10 : 0.109 seconds
+
+sRead 100 : 1.072 seconds
+
+sRead 1000 : 10.668 seconds
+
+Explanation: Each read is taking a fixed linear time, 10ms, and because of that
+we see a fairly linear growth when it comes to run times. There's also overhead
+between reads, so there is not exactly linear, but extremely close. 

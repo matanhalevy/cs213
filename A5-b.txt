@@ -1,0 +1,19 @@
+void f() {
+	int a = 0;
+	int b = ?;
+	int c = ?;
+	while (b != 0){
+		
+	}
+
+}
+
+void main() {
+	int i = 8
+	while (i != 0) {
+		i--;
+		f();
+		y[i] = x[i];
+	}
+}
+
